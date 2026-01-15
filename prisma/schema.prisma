@@ -1,0 +1,241 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+// Modelo de Usuário
+model User {
+  id            String    @id @default(uuid())
+  email         String    @unique
+  password      String
+  name          String
+  role          Role      @default(CUSTOMER)
+  phone         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  addresses     Address[]
+  carts         Cart[]
+  orders        Order[]
+  refreshTokens RefreshToken[]
+}
+
+// Enum para Role de Usuário
+enum Role {
+  ADMIN
+  CUSTOMER
+}
+
+// Modelo de Endereço
+model Address {
+  id         String   @id @default(uuid())
+  street     String
+  number     String
+  complement String?
+  district   String
+  city       String
+  state      String
+  zipCode    String
+  isDefault  Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  orders     Order[]
+}
+
+// Modelo de Categoria
+model Category {
+  id          String    @id @default(uuid())
+  name        String    @unique
+  description String?
+  slug        String    @unique
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  products    Product[]
+}
+
+// Modelo de Marca
+model Brand {
+  id          String    @id @default(uuid())
+  name        String    @unique
+  description String?
+  logo        String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  products    Product[]
+}
+
+// Modelo de Produto (Óculos)
+model Product {
+  id          String        @id @default(uuid())
+  name        String
+  description String
+  price       Float         @default(0)
+  stock       Int           @default(0)
+  sku         String        @unique
+  slug        String        @unique
+  isActive    Boolean       @default(true)
+  material    String?
+  gender      Gender?
+  frameColor  String?
+  lensColor   String?
+  frameShape  FrameShape?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  categoryId  String
+  category    Category      @relation(fields: [categoryId], references: [id])
+  brandId     String
+  brand       Brand         @relation(fields: [brandId], references: [id])
+  images      ProductImage[]
+  cartItems   CartItem[]
+  orderItems  OrderItem[]
+}
+
+// Enum para Gênero
+enum Gender {
+  MALE
+  FEMALE
+  UNISEX
+  KIDS
+}
+
+// Enum para Formato da Armação
+enum FrameShape {
+  ROUND
+  SQUARE
+  RECTANGLE
+  OVAL
+  AVIATOR
+  WAYFARER
+  CATEYE
+  GEOMETRIC
+  OVERSIZED
+  RIMLESS
+  BROWLINE
+  WRAPAROUND
+}
+
+// Modelo de Imagem de Produto
+model ProductImage {
+  id        String   @id @default(uuid())
+  url       String
+  alt       String?
+  isMain    Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+}
+
+// Modelo de Carrinho
+model Cart {
+  id        String     @id @default(uuid())
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  userId    String
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items     CartItem[]
+}
+
+// Modelo de Item do Carrinho
+model CartItem {
+  id        String   @id @default(uuid())
+  quantity  Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  cartId    String
+  cart      Cart     @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  productId String
+  product   Product  @relation(fields: [productId], references: [id])
+}
+
+// Modelo de Pedido
+model Order {
+  id              String      @id @default(uuid())
+  orderNumber     String      @unique
+  status          OrderStatus @default(PENDING)
+  total           Float       @default(0)
+  shippingCost    Float       @default(0)
+  discount        Float?
+  notes           String?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  userId          String
+  user            User        @relation(fields: [userId], references: [id])
+  addressId       String
+  address         Address     @relation(fields: [addressId], references: [id])
+  items           OrderItem[]
+  payment         Payment?
+}
+
+// Enum para Status do Pedido
+enum OrderStatus {
+  PENDING
+  PROCESSING
+  SHIPPED
+  DELIVERED
+  CANCELLED
+}
+
+// Modelo de Item do Pedido
+model OrderItem {
+  id        String   @id @default(uuid())
+  quantity  Int
+  price     Float    @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  orderId   String
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId String
+  product   Product  @relation(fields: [productId], references: [id])
+}
+
+// Modelo de Pagamento
+model Payment {
+  id                String        @id @default(uuid())
+  amount            Float         @default(0)
+  status            PaymentStatus @default(PENDING)
+  paymentMethod     PaymentMethod
+  paymentIntentId   String?       // ID do pagamento no gateway (Stripe/MercadoPago)
+  paymentProviderId String?       // ID do cliente no gateway
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  orderId           String        @unique
+  order             Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
+}
+
+// Enum para Status do Pagamento
+enum PaymentStatus {
+  PENDING
+  PROCESSING
+  SUCCEEDED
+  FAILED
+  REFUNDED
+}
+
+// Enum para Método de Pagamento
+enum PaymentMethod {
+  CREDIT_CARD
+  DEBIT_CARD
+  PIX
+  BOLETO
+  PAYPAL
+}
+
+// Modelo de Token de Atualização
+model RefreshToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
